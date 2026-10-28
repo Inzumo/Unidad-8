@@ -1,13 +1,77 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Why Bother?</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why Bother? — ¿Para qué tomarte el trabajo?</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script>
+    // Si algo falla, se escribe en pantalla (incluye archivos que no cargan)
+    window.addEventListener('error', function (e) {
+      var t = e.target || {};
+      var msg = (t.src || t.href) ? 'No se pudo cargar: ' + (t.src || t.href) : 'Error: ' + e.message;
+      document.documentElement.insertAdjacentHTML('beforeend',
+        '<pre style="position:fixed;top:0;left:0;margin:0;padding:10px;color:#ff9a9a;font:13px monospace;z-index:999;white-space:pre-wrap">' + msg + '</pre>');
+    }, true);
+  </script>
 </head>
 <body>
-  <script src="sketch.js"></script>
+
+  <!-- PANTALLA DE ENTRADA -->
+  <div id="intro">
+    <div class="intro-bg"></div>
+    <div class="intro-content">
+      <div class="intro-brand">
+        <h1>WHY BOTHER?</h1>
+        <p>¿Para qué tomarte el trabajo?</p>
+        <span class="intro-hint">— Dibuja —</span>
+      </div>
+      <button id="enter" class="enter-btn">Entrar</button>
+      <div class="intro-footer"><span>Una pregunta. Cuatro palabras. Tu trazo.</span></div>
+    </div>
+  </div>
+
+  <!-- UI -->
+  <div id="game-ui" class="hidden">
+    <div id="top-bar">
+      <div class="top-left">
+        <button id="back" class="ui-btn">← Inicio</button>
+        <button id="clear" class="ui-btn">Limpiar</button>
+        <button id="reset" class="ui-btn danger">⟳ Reiniciar</button>
+      </div>
+      <div id="badge">
+        <span id="badge-num">TRAZOS 00</span>
+        <span id="badge-sub">CUIDADO 0%</span>
+      </div>
+      <div class="top-right">
+        <button id="save" class="ui-btn">Guardar PNG</button>
+        <button id="lab-toggle" class="ui-btn">⚙ Instrumento</button>
+      </div>
+    </div>
+
+    <div id="goal-panel">
+      <div class="goal-label">OBJETIVO</div>
+      <h2 id="goal-title">—</h2>
+      <p id="goal-desc">—</p>
+    </div>
+
+    <div id="notification"><div id="notif-title"></div><div id="notif-sub"></div></div>
+
+    <div id="word-bar">
+      <div class="word-label">PALABRAS DESCUBIERTAS</div>
+      <div class="word-slots">
+        <span class="word-slot">?</span>
+        <span class="word-slot">?</span>
+        <span class="word-slot">?</span>
+        <span class="word-slot">?</span>
+      </div>
+    </div>
+  </div>
+
+  <main id="canvas-holder"></main>
+
+  <script src="labPanel.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
