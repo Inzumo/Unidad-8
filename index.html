@@ -2,76 +2,229 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Why Bother? — ¿Para qué tomarte el trabajo?</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; height: 100%; background: #07080c; overflow: hidden; }
+    canvas { display: block; touch-action: none; cursor: crosshair; }
+    #title {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 5; pointer-events: none; user-select: none;
+      text-align: center; padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px 0;
+    }
+    #title h1 {
+      margin: 0 0 8px; font: 900 clamp(1.8rem, 7vw, 4.2rem) 'Montserrat', Georgia, sans-serif;
+      letter-spacing: clamp(3px, 1.4vw, 12px); color: #fff;
+      text-shadow: 2px 2px 0 #f0b44c, 4px 4px 0 rgba(240,180,76,.4), 0 0 60px rgba(240,180,76,.5);
+      animation: glow 4s ease-in-out infinite alternate;
+    }
+    #title p {
+      margin: 0; font: 700 clamp(.6rem, 2.2vw, .85rem) 'JetBrains Mono', monospace;
+      letter-spacing: clamp(3px, 1vw, 8px); color: #8b8fa3; text-transform: uppercase;
+    }
+    @keyframes glow {
+      0%   { text-shadow: 2px 2px 0 #f0b44c, 4px 4px 0 rgba(240,180,76,.4), 0 0 40px rgba(240,180,76,.3); }
+      100% { text-shadow: 2px 2px 0 #f0b44c, 4px 4px 0 rgba(240,180,76,.5), 0 0 90px rgba(240,180,76,.8); }
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
   <script>
-    // Si algo falla, se escribe en pantalla (incluye archivos que no cargan)
+    // Si algo falla, se escribe en pantalla
     window.addEventListener('error', function (e) {
       var t = e.target || {};
       var msg = (t.src || t.href) ? 'No se pudo cargar: ' + (t.src || t.href) : 'Error: ' + e.message;
       document.documentElement.insertAdjacentHTML('beforeend',
-        '<pre style="position:fixed;top:0;left:0;margin:0;padding:10px;color:#ff9a9a;font:13px monospace;z-index:999;white-space:pre-wrap">' + msg + '</pre>');
+        '<pre style="position:fixed;bottom:0;left:0;margin:0;padding:10px;color:#ff9a9a;font:13px monospace;z-index:999;white-space:pre-wrap">' + msg + '</pre>');
     }, true);
   </script>
 </head>
 <body>
 
-  <!-- PANTALLA DE ENTRADA -->
-  <div id="intro">
-    <div class="intro-bg"></div>
-    <div class="intro-content">
-      <div class="intro-brand">
-        <h1>WHY BOTHER?</h1>
-        <p>¿Para qué tomarte el trabajo?</p>
-        <span class="intro-hint">— Dibuja —</span>
-      </div>
-      <button id="enter" class="enter-btn">Entrar</button>
-      <div class="intro-footer"><span>Una pregunta. Cuatro palabras. Tu trazo.</span></div>
-    </div>
-  </div>
+  <!-- El título de la unidad: siempre visible, encima del lienzo -->
+  <header id="title">
+    <h1>WHY BOTHER?</h1>
+    <p>¿Para qué tomarte el trabajo?</p>
+  </header>
 
-  <!-- UI -->
-  <div id="game-ui" class="hidden">
-    <div id="top-bar">
-      <div class="top-left">
-        <button id="back" class="ui-btn">← Inicio</button>
-        <button id="clear" class="ui-btn">Limpiar</button>
-        <button id="reset" class="ui-btn danger">⟳ Reiniciar</button>
-      </div>
-      <div id="badge">
-        <span id="badge-num">TRAZOS 00</span>
-        <span id="badge-sub">CUIDADO 0%</span>
-      </div>
-      <div class="top-right">
-        <button id="save" class="ui-btn">Guardar PNG</button>
-        <button id="lab-toggle" class="ui-btn">⚙ Instrumento</button>
-      </div>
-    </div>
+<script>
+// Why Bother? — escribe o dibuja con el mouse.
+// El trazo es suave (curvas, no segmentos) y fino para que la letra se lea.
+// Lento = grueso y cálido. Rápido = fino y frío (y suelta chispas).
+// Z deshace · C borra · S guarda
 
-    <div id="goal-panel">
-      <div class="goal-label">OBJETIVO</div>
-      <h2 id="goal-title">—</h2>
-      <p id="goal-desc">—</p>
-    </div>
+const SERIF = '"Iowan Old Style", "Palatino Linotype", Georgia, serif';
+let strokes = [], embers = [];
+let cur = null, bg, ink, inkCtx;
+let sm = { x: 0, y: 0 }, lastT = 0, smoothW = 4, smoothH = 60, hintA = 1;
 
-    <div id="notification"><div id="notif-title"></div><div id="notif-sub"></div></div>
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  colorMode(HSB, 360, 100, 100, 100);
+  makeBg();
+  makeInk();
+}
 
-    <div id="word-bar">
-      <div class="word-label">PALABRAS DESCUBIERTAS</div>
-      <div class="word-slots">
-        <span class="word-slot">?</span>
-        <span class="word-slot">?</span>
-        <span class="word-slot">?</span>
-        <span class="word-slot">?</span>
-      </div>
-    </div>
-  </div>
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  makeBg();
+  makeInk();
+}
 
-  <main id="canvas-holder"></main>
+function makeBg() {
+  bg = createGraphics(width, height);
+  bg.pixelDensity(1);
+  const g = bg.drawingContext;
+  const grad = g.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, max(width, height) * 0.7);
+  grad.addColorStop(0, '#1a1d2e');
+  grad.addColorStop(1, '#07080c');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, width, height);
+}
 
-  <script src="labPanel.js"></script>
-  <script src="main.js"></script>
+// Capa de tinta: los trazos terminados se "hornean" aquí, nítidos y estáticos.
+function makeInk() {
+  const dpr = window.devicePixelRatio || 1;
+  ink = document.createElement('canvas');
+  ink.width = Math.floor(width * dpr);
+  ink.height = Math.floor(height * dpr);
+  inkCtx = ink.getContext('2d');
+  inkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  bakeAll();
+}
+
+function bakeAll() {
+  inkCtx.clearRect(0, 0, width, height);
+  for (const st of strokes) if (st !== cur) paintStroke(inkCtx, st.pts);
+}
+
+const hslStr  = (h, s, l)    => 'hsl(' + h + ',' + s + '%,' + l + '%)';
+const hslaStr = (h, s, l, a) => 'hsla(' + h + ',' + s + '%,' + l + '%,' + a + ')';
+
+// Pinta un trazo con curvas cuadráticas entre puntos medios: suave y legible.
+function paintStroke(ctx, pts) {
+  const n = pts.length;
+  if (!n) return;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (n < 3) {                                     // un toque = un punto
+    for (const p of pts) {
+      ctx.fillStyle = hslStr(p.h, 95, 64);
+      ctx.shadowColor = hslaStr(p.h, 100, 60, 0.85);
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(1.2, p.w / 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    const a = i === 0 ? p : { x: (pts[i - 1].x + p.x) / 2, y: (pts[i - 1].y + p.y) / 2 };
+    const b = i === n - 1 ? p : { x: (p.x + pts[i + 1].x) / 2, y: (p.y + pts[i + 1].y) / 2 };
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.quadraticCurveTo(p.x, p.y, b.x, b.y);
+    ctx.lineWidth = p.w;
+    ctx.strokeStyle = hslStr(p.h, 95, 64);
+    ctx.shadowColor = hslaStr(p.h, 100, 60, 0.85);
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function addPt(x, y, speed) {
+  smoothW = lerp(smoothW, constrain(map(speed, 0, 30, 5.5, 1.8), 1.8, 5.5), 0.25);
+  smoothH = lerp(smoothH, constrain(map(speed, 0, 30, 45, 200), 45, 200), 0.2);
+  cur.pts.push({ x, y, w: smoothW, h: Math.round(smoothH) });
+  if (speed > 16 && embers.length < 400) {         // los trazos rápidos sueltan chispas
+    embers.push({ x, y, vx: random(-0.5, 0.5), vy: random(-1, -0.2), life: 1, h: smoothH, r: random(1, 2.4) });
+  }
+}
+
+function mousePressed() {
+  cur = { pts: [] };
+  strokes.push(cur);
+  sm.x = mouseX; sm.y = mouseY;
+  smoothW = 4;
+  lastT = millis();
+  addPt(mouseX, mouseY, 0);
+  return false;
+}
+
+function mouseDragged() {
+  if (!cur) return false;
+  // suavizado leve de la entrada: quita el temblor de píxel sin perder la forma de la letra
+  sm.x = lerp(sm.x, mouseX, 0.55);
+  sm.y = lerp(sm.y, mouseY, 0.55);
+  const last = cur.pts[cur.pts.length - 1];
+  const d = dist(sm.x, sm.y, last.x, last.y);
+  if (d < 2) return false;
+  const now = millis();
+  const speed = d / max(1, now - lastT) * 16;      // px por frame, independiente de la frecuencia del mouse
+  lastT = now;
+  addPt(sm.x, sm.y, speed);
+  return false;
+}
+
+function mouseReleased() {
+  if (!cur) return false;
+  const last = cur.pts[cur.pts.length - 1];
+  if (dist(mouseX, mouseY, last.x, last.y) > 1) addPt(mouseX, mouseY, 6);   // cierra el trazo donde soltaste
+  paintStroke(inkCtx, cur.pts);                                           // se hornea en la capa de tinta
+  cur = null;
+  return false;
+}
+
+function keyPressed() {
+  if (key === 'z' || key === 'Z') { strokes.pop(); bakeAll(); }
+  if (key === 'c' || key === 'C') { strokes = []; embers = []; bakeAll(); }
+  if (key === 's' || key === 'S') saveCanvas('why-bother', 'png');
+}
+
+function draw() {
+  const ctx = drawingContext;
+  ctx.drawImage(bg.elt, 0, 0, width, height);
+
+  // la tinta respira muy poco: un brillo lento, sin deformar las letras
+  ctx.save();
+  ctx.globalAlpha = 0.92 + 0.08 * Math.sin(frameCount * 0.02);
+  ctx.drawImage(ink, 0, 0, width, height);
+  ctx.restore();
+
+  if (cur) paintStroke(ctx, cur.pts);               // el trazo en curso
+
+  noStroke();
+  for (let i = embers.length - 1; i >= 0; i--) {    // chispas
+    const e = embers[i];
+    e.x += e.vx + (noise(e.x * 0.01, e.y * 0.01, frameCount * 0.01) - 0.5) * 0.8;
+    e.y += e.vy;
+    e.life -= 0.014;
+    if (e.life <= 0) { embers.splice(i, 1); continue; }
+    fill(e.h, 40, 100, e.life * 18); circle(e.x, e.y, e.r * 5);
+    fill(e.h, 30, 100, e.life * 90); circle(e.x, e.y, e.r * 1.6);
+  }
+
+  // invitación: se va con el primer trazo
+  hintA = strokes.length === 0 ? min(1, hintA + 0.02) : max(0, hintA - 0.05);
+  if (hintA > 0.01) {
+    textFont(SERIF);
+    textAlign(CENTER, CENTER);
+    textSize(min(30, width * 0.06));
+    fill(220, 8, 97, 80 * hintA * (0.75 + 0.25 * Math.sin(frameCount * 0.05)));
+    text('Escribe o dibuja con el mouse', width / 2, height * 0.56);
+  }
+
+  textFont(SERIF);
+  fill(220, 8, 97, 18);
+  textSize(12);
+  textAlign(CENTER, BOTTOM);
+  text('Z deshace · C borra · S guarda', width / 2, height - 16);
+}
+</script>
 </body>
 </html>
